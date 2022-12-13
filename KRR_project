@@ -1,0 +1,213 @@
+
+from openpyxl import workbook
+from openpyxl import load_workbook
+from openpyxl.styles import PatternFill
+from openpyxl.styles import Border,Side
+from datetime import date
+from win32com.client import Dispatch
+import openpyxl
+import pandas as pd
+import os
+import getpass
+
+username:str = getpass.getuser().upper()
+user_link_to_path:str = "C:\\Users\\" + username + "\\OneDrive - BP\\TEST_MD_Validation_EA_report_list\\Test_MD Validation Every Angle report list.xlsx"
+workbook = load_workbook(filename= user_link_to_path,read_only=False,data_only=False)
+sheet = workbook['Test']
+
+new_list = []            # list of files
+new_dict = {}            # dictionary containing the file name and number of rows 
+pair_files_dict={        # dictionary containing which file should be compared with which
+
+
+    "KRR_01_KRRvsECCMaterialexistence.xlsx":"KRR_01_BasicList.xlsx",
+    "KRR_01_KRRvsECCSPKcheck.xlsx":"KRR_01_BasicList.xlsx",
+
+    "KRR_02_FixedleadtimevsPDT_buy.xlsx":"KRR_02_FixedleadtimevsPDT_buy_basiclist.xlsx",
+    "KRR_02_FixedleadtimevsPDT_make.xlsx":"KRR_02_FixedleadtimevsPDT_make_basiclist.xlsx",
+    "KRR_02_FixedleadtimevsPDT_transfer_PIR.xlsx":"KRR_02_FixedleadtimevsPDT_transfer_PIR_basiclist.xlsx",
+    "KRR_02_FixedleadtimevsPDT_transfer_SPK.xlsx":"KRR_02_FixedleadtimevsPDT_transfer_SPK_basiclist.xlsx",
+
+    "KRR_03_ECCvsKRRABCcheck.xlsx":"KRR_03_BasicList.xlsx",
+    "KRR_03_ECCvsKRRMaterialexistence.xlsx":"KRR_03_BasicList.xlsx",
+    "KRR_03_ECCvsKRRMRPCcheck.xlsx":"KRR_03_BasicList.xlsx",
+    "KRR_03_ECCvsKRRPlantMaterialStatus.xlsx":"KRR_03_BasicList.xlsx",
+    "KRR_03_ECCvsKRRProcurementtype.xlsx":"KRR_03_BasicList.xlsx",
+    "KRR_03_ECCvsKRRSafetyDays.xlsx":"KRR_03_BasicList.xlsx",
+    "KRR_03_ECCvsKRRSafetyStock.xlsx":"KRR_03_BasicList.xlsx",
+
+    "KRR_04_TLanevsPartSource_noPIRinKRR.xlsx":"KRR_04_TLanevsPartSource_noPIRinKRR_basiclist.xlsx",
+    "KRR_04_TLanevsPartSource_noSPKinKRR.xlsx":"KRR_04_TLanevsPartSource_noSPKinKRR_basiclist.xlsx",
+    "KRR_04_TLanevsPartSource_PrioonexistingPS.xlsx":"KRR_04_TLanevsPartSource_PrioonexistingPS_basiclist.xlsx",
+
+    "KRR_09_KRRvsECCActiveBOMcheckonheader.xlsx":"KRR_09_BasicList.xlsx",
+    "KRR_09_KRRvsECCActiveBOMcheckonitem.xlsx":"KRR_09_BasicList.xlsx",
+
+    "KRR_10_BOMselectionmethodnot2_3PIVOT.xlsx":"KRR_10_Selectionmethod_basiclist.xlsx",
+    "KRR_10_ECCvsKRRActiveBOMcheckonitem.xlsx":"KRR_10_ECCvsKRRActiveBOMitemcheck_basiclist.xlsx",
+
+    "KRR_11_ECCvsKRROpenWorkOrder.xlsx":"KRR_11_BasicList.xlsx",
+    "KRR_12_ECCvsKRROpenPurchaserequisition.xlsx":"KRR_12_BasicList.xlsx",
+    #"KRR_13_ECCvsKRROpenPDScheduleLine.xlsx":"KRR_13_BasicList.xlsx",
+    "KRR_15_ECCvsKRRStockOnHand.xlsx":"KRR_15_BasicList.xlsx",
+    "KRR_16_ECCvsKRRPIRcheck.xlsx":"KRR_16_BasicList.xlsx",
+    "KRR_16_ECCvsKRRPIRPurchOrgcheck.xlsx":"KRR_16_BasicList.xlsx",
+    "KRR_17_KRRvsECCStockOnHand.xlsx":"KRR_17_BasicList.xlsx",
+
+
+}       # dictionary for which file should be compared to which, manual maintenance
+
+file_path:str = "T:\\KRR Reports\\"
+
+def upload_files_to_list():
+    #upload directory contents to list
+    folder_content = str(os.listdir("T:\KRR Reports"))
+
+    #filter out redundant chars, so file names can be put in list
+    filtered_folder_content = ""
+    for x in range(len(folder_content)):
+        if folder_content[x] == "'" or folder_content[x] == " " or folder_content[x]=="[" or folder_content[x]=="]" :
+            pass  
+        else:
+            filtered_folder_content = filtered_folder_content  + folder_content[x]
+
+    #properly put into a list, US ones needs to be deleted
+    filtered_list = filtered_folder_content.split(",")
+
+    #check if list is set up correctly, and create new list without US ones.
+    for x in filtered_list:
+        if not "_US_" in x:
+            new_list.append(x)
+            print(x, " <==  Pattern does not have US in it.")
+
+
+def upload_values_to_dic():
+    for x in new_list:
+        print(x, " - - - - -  ",len(pd.read_excel(file_path+x)))
+        new_dict[x] = len(pd.read_excel(file_path+x))
+
+
+def print_dict_values():
+    for x in pair_files_dict:
+        print(x, " | ", new_dict[x] , " | ",  pair_files_dict[x], " | " , new_dict[pair_files_dict[x]])
+
+
+def fit_columns():
+    for col in sheet.columns:
+        max_length = 0
+        column = col[0].column_letter # Get the column name
+        for cell in col:
+            try: # Necessary to avoid error on empty cells
+                if len(str(cell.value)) > max_length:
+                    max_length = len(str(cell.value))
+            except:
+             pass
+        adjusted_width = (max_length + 2) #* 1.2
+        sheet.column_dimensions[column].width = adjusted_width
+
+
+    workbook.save(user_link_to_path)
+    print("columns formatting done")
+
+
+def write_to_excel():
+    sheet.insert_cols(1,4)
+    my_color = openpyxl.styles.colors.Color(rgb='808080')   
+    sheet["B1"].value  = date.today()
+    sheet["B1"].number_format = 'dd/mm/yyyy'
+    sheet["A2"].value = "Master Data Validation (EMEA - PROD)"
+    sheet["B2"].value = "Total"
+    sheet["C2"].value = "Error"
+    sheet["D2"].value = "Accuracy"
+
+    sheet["A2"].fill = PatternFill( fill_type = "solid", fgColor=my_color)
+    sheet["B2"].fill = PatternFill( fill_type = "solid", fgColor=my_color)
+    sheet["C2"].fill = PatternFill( fill_type = "solid", fgColor=my_color)
+    sheet["D2"].fill = PatternFill( fill_type = "solid", fgColor=my_color)
+
+    i = 3
+
+    left=Side(border_style='thick',color="A52A2A")
+    border=Border(left=left)
+
+    for x in pair_files_dict:
+        sheet["A"+str(i)].value = str(x)
+        sheet["B"+str(i)].value = new_dict[pair_files_dict[x]]
+        sheet["B"+str(i)].border = border
+        sheet["B"+str(i)].number_format ='#,###'
+        sheet["C"+str(i)].value = new_dict[x]
+        sheet["C"+str(i)].number_format ='#,###'
+        sheet["D"+str(i)].value = "=1-C"+str(i)+"/"+"B" + str(i)
+        sheet["D"+str(i)].number_format = '0.0%'
+        i = i+1
+
+    workbook.save(user_link_to_path)
+    print("formatting done")
+
+def write_to_excel_without_comparisonField():
+    sheet.insert_cols(2,3)
+
+    my_color = openpyxl.styles.colors.Color(rgb='808080')
+
+    sheet["B1"].value  = date.today()
+    sheet["B1"].number_format = 'dd/mm/yyyy'
+    sheet["B2"].value = "Total"
+    sheet["C2"].value = "Error"
+    sheet["D2"].value = "Accuracy"
+
+
+    sheet["B2"].fill = PatternFill( fill_type = "solid", fgColor=my_color)
+    sheet["C2"].fill = PatternFill( fill_type = "solid", fgColor=my_color)
+    sheet["D2"].fill = PatternFill( fill_type = "solid", fgColor=my_color)
+
+
+    i = 3
+    left=Side(border_style='thick',color="A52A2A")
+    border=Border(left=left)
+
+    for x in pair_files_dict:
+        sheet["B"+str(i)].value = new_dict[pair_files_dict[x]]
+        sheet["B"+str(i)].border = border
+        sheet["B"+str(i)].number_format ='#,###'
+        sheet["C"+str(i)].value = new_dict[x]
+        sheet["C"+str(i)].number_format ='#,###'
+        sheet["D"+str(i)].value = "=1-C"+str(i)+"/"+"B" + str(i)
+        sheet["D"+str(i)].number_format = '0.0%'
+        i = i+1
+
+    workbook.save(user_link_to_path)
+    print("formatting done")
+
+
+def main_script():
+    #1 getting the files to work with (list)
+    upload_files_to_list()
+    #2 adding workbook row count values to dict
+    upload_values_to_dic()
+    #3 print out dictionary pairs and values 
+    print_dict_values()
+    #4 open excel and copy
+    write_to_excel()
+    # fit columns
+    fit_columns()
+
+def main_script_without_comparisonField():
+    #1 getting the files to work with (list)
+    upload_files_to_list()
+    #2 adding workbook row count values to dict
+    upload_values_to_dic()
+    #3 print out dictionary pairs and values
+    print_dict_values()
+    #4 open excel and copy
+    write_to_excel_without_comparisonField()
+    # fit columns
+    fit_columns()
+
+if __name__ == "__main__":
+    user_input = input("Which script you would like to run? Type 'full' so the Master data validation column will be added as well (This is for new file creation only.). Type 'run' if you only liked to get data for this week. : ")
+    if user_input.lower() == "full":
+        main_script()    
+    elif user_input.lower() == "run":
+        main_script_without_comparisonField()
+    else:
+        print("No valid command was given. Please type either 'run' or 'full'. ")
