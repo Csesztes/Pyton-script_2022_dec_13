@@ -3,17 +3,23 @@ from openpyxl import workbook
 from openpyxl import load_workbook
 from openpyxl.styles import PatternFill
 from openpyxl.styles import Border,Side
+from openpyxl.styles import Font    
 from datetime import date
 from win32com.client import Dispatch
 import openpyxl
 import pandas as pd
 import os
 import getpass
+import xlwings as xw
+from datetime import date
+import time
 
+start_command:bool = False
 username:str = getpass.getuser().upper()
-user_link_to_path:str = "C:\\Users\\" + username + "\\OneDrive - BP\\TEST_MD_Validation_EA_report_list\\Test_MD Validation Every Angle report list.xlsx"
-workbook = load_workbook(filename= user_link_to_path,read_only=False,data_only=False)
-sheet = workbook['Test']
+user_link_to_path:str = "C:\\Users\\" + username + "\\OneDrive - BP\\TEST_MD_Validation_EA_report_list\\MD Validation Every Angle report list.xlsm"
+user_link_to_path_trigger_file:str = "C:\\Users\\" + username + "\\OneDrive - BP\\TEST_MD_Validation_EA_report_list\\trigger_"+ str(date.today()) +".txt"
+workbook = load_workbook(filename= user_link_to_path,read_only=False,data_only=False,keep_vba=True)
+sheet = workbook['Sheet1']
 
 new_list = []            # list of files
 new_dict = {}            # dictionary containing the file name and number of rows 
@@ -47,17 +53,27 @@ pair_files_dict={        # dictionary containing which file should be compared w
     "KRR_10_ECCvsKRRActiveBOMcheckonitem.xlsx":"KRR_10_ECCvsKRRActiveBOMitemcheck_basiclist.xlsx",
 
     "KRR_11_ECCvsKRROpenWorkOrder.xlsx":"KRR_11_BasicList.xlsx",
+
     "KRR_12_ECCvsKRROpenPurchaserequisition.xlsx":"KRR_12_BasicList.xlsx",
-    #"KRR_13_ECCvsKRROpenPDScheduleLine.xlsx":"KRR_13_BasicList.xlsx",
+    "KRR_13_ECCvsKRROpenPDScheduleLine.xlsx":"KRR_13_ECCvsKRROpenPDScheduleLine_basiclist.xlsx",
     "KRR_15_ECCvsKRRStockOnHand.xlsx":"KRR_15_BasicList.xlsx",
     "KRR_16_ECCvsKRRPIRcheck.xlsx":"KRR_16_BasicList.xlsx",
     "KRR_16_ECCvsKRRPIRPurchOrgcheck.xlsx":"KRR_16_BasicList.xlsx",
     "KRR_17_KRRvsECCStockOnHand.xlsx":"KRR_17_BasicList.xlsx",
 
+    #"Plan_63_ProcTypeFwithNoSource.xlsx":"KRR_03_BasicList.xlsx",
+    "MMD_67_ProcTypeFwithNoSource.xlsx":"KRR_03_BasicList.xlsx",
 
-}       # dictionary for which file should be compared to which, manual maintenance
+    # added on feb 23 Rita's request
+    "KRR_07_ECCvsKRROpenDeliveries.xlsx":"KRR_07_ECCvsKRROpenDeliveries_basiclist.xlsx",
+    "MAN_32_EmptyPV_SetPrio_EMEA.xlsx":"MAN_32_EmptyPV_SetPrio_EMEA_basiclist.xlsx",
+    "KRR_08_KRRvsECCQtycheck_PurReq.xlsx":"KRR_08_KRRvsECCPurReq_Basic.xlsx",
+    "KRR_08_KRRvsECCDatecheck_PurReq.xlsx":"KRR_08_KRRvsECCPurReq_Basic.xlsx",
+    "KRR_19_KRR_ClosedLoopErrors.xlsx":"KRR_01_KRRvsECCMaterialexistence.xlsx" # this one always have to be compared to zero. I put a random basic list which has 0 always rows for now to test.
+}      
 
-file_path:str = "T:\\KRR Reports\\"
+# dictionary for which file should be compared to which, manual maintenance
+#file_path:str = "T:\\KRR Reports\\"
 
 def upload_files_to_list():
     #upload directory contents to list
@@ -82,9 +98,14 @@ def upload_files_to_list():
 
 
 def upload_values_to_dic():
+    file_path:str = "T:\\KRR Reports\\"
     for x in new_list:
         print(x, " - - - - -  ",len(pd.read_excel(file_path+x)))
         new_dict[x] = len(pd.read_excel(file_path+x))
+
+
+    #manually added file to dictionary due to different source location
+    new_dict["MMD_67_ProcTypeFwithNoSource.xlsx"] = len(pd.read_excel("T:\\Material MD reports\\"+"MMD_67_ProcTypeFwithNoSource.xlsx")) 
 
 
 def print_dict_values():
@@ -110,21 +131,35 @@ def fit_columns():
     print("columns formatting done")
 
 
+def fit_columns2():
+    for column_cells in sheet.columns:
+        length = max(len(str(cell.value)) for cell in column_cells)
+        sheet.column_dimensions[column_cells[0].column_letter].width = length
+
+
 def write_to_excel():
     sheet.insert_cols(1,4)
-    my_color = openpyxl.styles.colors.Color(rgb='808080')   
-    sheet["B1"].value  = date.today()
-    sheet["B1"].number_format = 'dd/mm/yyyy'
+    #my_color = openpyxl.styles.colors.Color(rgb='808080')
+    my_color = openpyxl.styles.colors.Color(rgb='006400')
+    #my_color = openpyxl.styles.colors.Color(rgb='009933')  # green color 00ff00 hexa
+    my_color_letter = openpyxl.styles.colors.Color(rgb='ffffff')  # white color ffffff
+
+    sheet["C1"].value  = date.today()
+    sheet["C1"].number_format = 'dd/mm/yyyy'
     sheet["A2"].value = "Master Data Validation (EMEA - PROD)"
-    sheet["B2"].value = "Total"
-    sheet["C2"].value = "Error"
-    sheet["D2"].value = "Accuracy"
+    sheet["C2"].value = "Total"
+    sheet["D2"].value = "Error"
+    sheet["E2"].value = "Accuracy"
 
     sheet["A2"].fill = PatternFill( fill_type = "solid", fgColor=my_color)
-    sheet["B2"].fill = PatternFill( fill_type = "solid", fgColor=my_color)
     sheet["C2"].fill = PatternFill( fill_type = "solid", fgColor=my_color)
     sheet["D2"].fill = PatternFill( fill_type = "solid", fgColor=my_color)
+    sheet["E2"].fill = PatternFill( fill_type = "solid", fgColor=my_color)
 
+    sheet["A2"].font = Font(color='ffffff',bold = True)
+    sheet["C2"].font = Font(color='ffffff',bold = True)
+    sheet["D2"].font = Font(color = "ffffff",bold = True)
+    sheet["E2"].font = Font(color = "ffffff",bold = True)
     i = 3
 
     left=Side(border_style='thick',color="A52A2A")
@@ -132,52 +167,92 @@ def write_to_excel():
 
     for x in pair_files_dict:
         sheet["A"+str(i)].value = str(x)
-        sheet["B"+str(i)].value = new_dict[pair_files_dict[x]]
-        sheet["B"+str(i)].border = border
-        sheet["B"+str(i)].number_format ='#,###'
-        sheet["C"+str(i)].value = new_dict[x]
+        sheet["C"+str(i)].value = new_dict[pair_files_dict[x]]
+        sheet["C"+str(i)].border = border
         sheet["C"+str(i)].number_format ='#,###'
-        sheet["D"+str(i)].value = "=1-C"+str(i)+"/"+"B" + str(i)
-        sheet["D"+str(i)].number_format = '0.0%'
+        sheet["D"+str(i)].value = new_dict[x]
+        sheet["D"+str(i)].number_format ='#,###'
+        if x == "KRR_19_KRR_ClosedLoopErrors.xlsx":
+            if new_dict[x] > 0:
+                sheet["E"+str(i)].value =0
+            else:
+               sheet["E"+str(i)].value =1 
+        else:
+            sheet["E"+str(i)].value = 1-(new_dict[x]/new_dict[pair_files_dict[x]])
+        sheet["E"+str(i)].number_format = '0.0%'
         i = i+1
 
     workbook.save(user_link_to_path)
     print("formatting done")
 
 def write_to_excel_without_comparisonField():
-    sheet.insert_cols(2,3)
+    sheet.insert_cols(3,3)
 
-    my_color = openpyxl.styles.colors.Color(rgb='808080')
+    #my_color = openpyxl.styles.colors.Color(rgb='808080')
+    my_color = openpyxl.styles.colors.Color(rgb='006400')  # green color 00ff00 hexa
+    #my_color = openpyxl.styles.colors.Color(rgb='009933')
+    my_color_letter = openpyxl.styles.colors.Color(rgb='ffffff')  # white color ffffff
 
-    sheet["B1"].value  = date.today()
-    sheet["B1"].number_format = 'dd/mm/yyyy'
-    sheet["B2"].value = "Total"
-    sheet["C2"].value = "Error"
-    sheet["D2"].value = "Accuracy"
+    sheet["C1"].value  = date.today()
+    sheet["C1"].number_format = 'dd/mm/yyyy'
+    sheet["C2"].value = "Total"
+    sheet["D2"].value = "Error"
+    sheet["E2"].value = "Accuracy"
 
 
-    sheet["B2"].fill = PatternFill( fill_type = "solid", fgColor=my_color)
     sheet["C2"].fill = PatternFill( fill_type = "solid", fgColor=my_color)
     sheet["D2"].fill = PatternFill( fill_type = "solid", fgColor=my_color)
+    sheet["E2"].fill = PatternFill( fill_type = "solid", fgColor=my_color)
 
+    sheet["C2"].font = Font(color='ffffff',bold = True)
+    sheet["D2"].font = Font(color = "ffffff",bold = True)
+    sheet["E2"].font = Font(color = "ffffff",bold = True)
 
     i = 3
     left=Side(border_style='thick',color="A52A2A")
     border=Border(left=left)
 
     for x in pair_files_dict:
-        sheet["B"+str(i)].value = new_dict[pair_files_dict[x]]
-        sheet["B"+str(i)].border = border
-        sheet["B"+str(i)].number_format ='#,###'
-        sheet["C"+str(i)].value = new_dict[x]
+        sheet["C"+str(i)].value = new_dict[pair_files_dict[x]]
+        sheet["C"+str(i)].border = border
         sheet["C"+str(i)].number_format ='#,###'
-        sheet["D"+str(i)].value = "=1-C"+str(i)+"/"+"B" + str(i)
-        sheet["D"+str(i)].number_format = '0.0%'
+        sheet["D"+str(i)].value = new_dict[x]
+        sheet["D"+str(i)].number_format ='#,###'
+        if x == "KRR_19_KRR_ClosedLoopErrors.xlsx":
+            if new_dict[x] >0:
+                sheet["E"+str(i)].value =0
+            else:
+               sheet["E"+str(i)].value =1  
+        else:
+            sheet["E"+str(i)].value = 1-(new_dict[x]/new_dict[pair_files_dict[x]])
+        sheet["E"+str(i)].number_format = '0.0%'
         i = i+1
 
     workbook.save(user_link_to_path)
     print("formatting done")
 
+def print_finished():
+    print("Script run successfully!")
+
+def xl_open():
+    #xw.App(visible=True)
+    book = xw.Book(user_link_to_path)
+    time.sleep(10)
+    #book.save(user_link_to_path)
+    #book.close()
+
+
+def create_trigger_file(full_file_name, file_txt):
+    trigger_file = open(full_file_name, "w")
+    trigger_file.write(file_txt)
+    trigger_file.close()
+    return file_txt
+
+def sub_mrpcISNull_colorGrey():
+    if sheet['D11'].value >0:
+        for i in range(3,36):
+            sheet['D'+str(i)].fill = PatternFill( fill_type = "solid", fgColor="00808080")
+    workbook.save(user_link_to_path)
 
 def main_script():
     #1 getting the files to work with (list)
@@ -187,27 +262,26 @@ def main_script():
     #3 print out dictionary pairs and values 
     print_dict_values()
     #4 open excel and copy
-    write_to_excel()
-    # fit columns
-    fit_columns()
+    if start_command == False:
+        write_to_excel_without_comparisonField()
+    else:
+        write_to_excel()
+    sub_mrpcISNull_colorGrey()
+    xl_open()
+    create_trigger_file(user_link_to_path_trigger_file, str(date.today()))
+    print_finished()
 
-def main_script_without_comparisonField():
-    #1 getting the files to work with (list)
-    upload_files_to_list()
-    #2 adding workbook row count values to dict
-    upload_values_to_dic()
-    #3 print out dictionary pairs and values
-    print_dict_values()
-    #4 open excel and copy
-    write_to_excel_without_comparisonField()
-    # fit columns
-    fit_columns()
 
 if __name__ == "__main__":
     user_input = input("Which script you would like to run? Type 'full' so the Master data validation column will be added as well (This is for new file creation only.). Type 'run' if you only liked to get data for this week. : ")
+    
     if user_input.lower() == "full":
-        main_script()    
+        start_command = True 
+        main_script()
     elif user_input.lower() == "run":
-        main_script_without_comparisonField()
+        start_command = False
+        main_script()
     else:
         print("No valid command was given. Please type either 'run' or 'full'. ")
+    
+    
